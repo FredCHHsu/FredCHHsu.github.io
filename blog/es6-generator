@@ -1,0 +1,192 @@
+原課程連結：[ES6 Javascript: The Complete Developer's Guide](https://www.udemy.com/javascript-es6-tutorial/)
+
+## 什麼是 generator ？
+generator是一種可以多次進出的function，一般function被呼叫，會執行完成回傳結果，但generator可以在執行到某一個位置時就回傳值，然後再從這個位置進入繼續執行。
+
+## generator 能幹嘛？
+### example 1:
+```javascript
+function* numbers() { // 用function* 宣告generator
+  yield; // yield表示generator可回傳的位置
+}
+
+const gen = numbers();
+gen.next(); // 第一次呼叫，執行至第一個 yield 回傳 {"done":false}
+gen.next(); // 第二次呼叫，從第一個yield繼續執行完，回傳 {"done":true}
+```
+
+### example 2: 出門一趟
+```javascript
+function* shopping() {
+  // 在商店裡...
+
+  // 帶著現金去商店
+  const stuffFromStore = yield 'cash';
+
+  // 去洗衣店
+  const cleanClothes = yield 'laundry';
+
+  // 帶著戰利品回家
+  return [stuffFromStore, cleanClothes];
+}
+
+// 在路上發生的事
+const gen = shopping();
+gen.next(); // {"value":"cash", "done":"false"}
+// 出門 -> 走進商店 -> 買東西
+
+gen.next('groceries'); // {"value":"laundry", "done":"false"}
+// 帶著商店的戰利品到洗衣店
+
+gen.next('clean clothes');
+// {"value":["groceries","clean clothes"], "done":"true"}
+// 拿到洗好的衣服，帶著所有東西回家
+```
+
+## generator / iteration
+
+### example 3: generator 可以跟 for of 合併使用
+```javascript
+function* colors(){
+  yield 'red';
+  yield 'green';
+  yield 'blue';
+}
+
+const myColors = [];
+for (let color of colors()) {
+  myColors.push(color);
+}
+
+myColors; // ["red","green","blue"]
+```
+
+### example 4: 用generator設計iterator
+```javascript
+const engineeringTeam = {
+  size: 3,
+  department: engineer,
+  lead: 'John',
+  manager: 'Joe',
+  engineer: 'Alex',
+};
+
+function* TeamIterator(team) { //只針對人名的iterator
+  yield team.lead;
+  yield team.manager;
+  yield team.engineer;
+}
+
+const names = [];
+for (let name of TeamIterator(engineerTeam)) {
+  names.push(name);
+}
+names; // ["John","Joe","Alex"]
+```
+
+## yield* - generator delegation
+### example 5: 用generator設計複雜的iterator
+```javascript
+const testingTeam = {
+  lead: 'Allen',
+  tester: 'Kate',
+}
+
+const engineeringTeam = {
+  testingTeam,
+  size: 3,
+  department: engineer,
+  lead: 'John',
+  manager: 'Joe',
+  engineer: 'Alex',
+};
+
+function* TeamIterator(team) { //只針對人名的iterator
+  yield team.lead;
+  yield team.manager;
+  yield team.engineer;
+  const TestingTeamGenerator = TestingTeamIterator(team.testingTeam);
+  yield* TestingTeamGenerator
+  // yield* 將iterator向呼叫的generator傳遞下去。next會進入TestingTeamIterator接續執行至yield。
+}
+
+function* TestingTeamIterator(team) {
+  yield team.lead;
+  yield team.tester;
+}
+
+const names = [];
+for (let name of TeamIterator(engineerTeam)) {
+  names.push(name);
+}
+names; // ["John","Joe","Alex","Allen","Kate"]
+```
+
+## generator with symbol.iterator
+
+**symbol.iterator 用於設定 object 對 for of 迴圈的回應，告訴 for of 要如何 loop 這個 object **
+
+### example 6: 用symbol.iterator 設定 loop
+```javascript
+const testingTeam = {
+  lead: 'Allen',
+  tester: 'Kate',
+  [Symbol.iterator]: function* () { // Symbol.iterator!!
+    yield this.lead;
+    yield this.tester;
+  },
+}
+
+const engineeringTeam = {
+  testingTeam,
+  size: 3,
+  department: engineer,
+  lead: 'John',
+  manager: 'Joe',
+  engineer: 'Alex',
+  [Symbol.iterator]: function* () { // Symbol.iterator!!
+    yield this.lead;
+    yield this.manager;
+    yield this.engineer;
+    yield* testingTeam; // for of loop testingTeam，根據Symbol.iterator的設定執行。
+  },
+};
+
+const names = [];
+for (let name of engineerTeam) {
+// 根據 Symbol.iterator 的設定執行 for of
+  names.push(name);
+}
+names; // ["John","Joe","Alex","Allen","Kate"]
+```
+
+### example 7: generator, symbol.interator 應用
+```javascript
+class Comment {
+  constructor(content, children) {
+    this.content = content;
+    this.children = children;
+  }
+  *[Symbol.iterator]() {
+    yield this.content;
+    for (let child of this.children) {
+      yield* child;
+    }
+  }
+}
+
+const children = [
+  new Comment('Good Comment', []),
+  new Comment('Bad Comment', []),
+  new Comment('huh?', []),
+]
+
+const tree = new Comment('Great!', children);
+
+const values = [];
+for (let value of tree) {
+  // 用 for of 會尋找 object 中的 Symbol.iterator 執行，因此迴圈會通過所有 children 並且回傳 content
+  values.push(value);
+}
+values; // {"Great!","Good Comment","Bad Comment","huh?"}
+```
